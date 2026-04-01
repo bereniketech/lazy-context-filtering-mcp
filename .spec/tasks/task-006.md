@@ -1,7 +1,7 @@
 ---
 task: 006
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [005]
 ---
 
@@ -59,17 +59,39 @@ _Skills: code-writing-software-development, tdd-workflow, security-review_
 ---
 
 ## Acceptance Criteria
-- [ ] CRUD operations work on InMemoryStore
-- [ ] SupabaseStore compiles and matches interface
-- [ ] Factory returns correct store based on env
-- [ ] Migration SQL creates all tables with correct indexes
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] CRUD operations work on InMemoryStore
+- [x] SupabaseStore compiles and matches interface
+- [x] Factory returns correct store based on env
+- [x] Migration SQL creates all tables with correct indexes
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
-## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+## Handoff — What Was Done
+- Implemented the `Store` contract with three domains (`contextItems`, `sessions`, `filterCache`) and shipped two implementations: `InMemoryStore` and `SupabaseStore`.
+- Added `createStore()` environment-driven factory (`DATABASE_URL` => Supabase, otherwise in-memory) and created initial Supabase schema migration.
+- Added full server-side storage tests, including CRUD behavior for in-memory storage and interface/factory compatibility checks.
+
+## Handoff — Patterns Learned
+- Keep task-requested `test_*.ts` files, then add thin `*.test.ts` Vitest entry wrappers for discovery compatibility.
+- In this Windows workspace, `rg` is not available in task shells, so audit checks should use cmd/findstr variants.
+- Supabase calls should use query builder methods (`eq`, `in`, `lte`, `gt`) only; no raw SQL interpolation.
+
+## Handoff — Files Changed
+- package.json
+- src/server/store.ts
+- src/server/memory-store.ts
+- src/server/db.ts
+- src/server/store-factory.ts
+- supabase/migrations/001_initial.sql
+- tests/server/test_memory_store.ts
+- tests/server/test_memory_store.test.ts
+- tests/server/test_store_interface.ts
+- tests/server/test_store_interface.test.ts
+- .spec/tasks/task-006.md
+- .claude/CLAUDE.md
+- bug-log.md
+
+## Status
+COMPLETE

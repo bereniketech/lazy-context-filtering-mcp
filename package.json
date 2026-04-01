@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/server/index.ts",
-    "test": "vitest run --coverage --passWithNoTests tests/server/test_mcp.test.ts",
+    "test": "vitest run --coverage --passWithNoTests",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
