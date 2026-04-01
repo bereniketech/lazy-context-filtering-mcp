@@ -40,7 +40,7 @@ async def score(request: ScoreRequest) -> ScoreResponse:
     
     Returns the top-k most relevant items ranked by relevance score.
     """
-    scored_items = scorer.score(request.query, request.items)
+    scored_items = scorer.score(request.query, request.items, request.session_history)
     filtered_items = filter_items(scored_items, min_score=0.0, limit=request.top_k)
     
     return ScoreResponse(items=filtered_items)

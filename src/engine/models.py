@@ -17,6 +17,7 @@ class ScoreRequest(BaseModel):
     query: str = Field(min_length=1)
     items: list[ContextItemPayload] = Field(min_length=1)
     top_k: int = Field(default=5, ge=1)
+    session_history: list[str] | None = None
 
 
 class ScoredItem(BaseModel):

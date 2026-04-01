@@ -25,11 +25,17 @@ export class EngineClient {
     this.timeoutMs = timeoutMs;
   }
 
-  public async score(query: string, items: ScoreItemInput[], topK = 5): Promise<ScoreItemOutput[]> {
+  public async score(
+    query: string,
+    items: ScoreItemInput[],
+    topK = 5,
+    sessionHistory?: string[]
+  ): Promise<ScoreItemOutput[]> {
     const payload = {
       query,
       items,
-      top_k: topK
+      top_k: topK,
+      session_history: sessionHistory
     };
 
     const response = await this.postJson<{ items?: ScoreItemOutput[] }>("/score", payload);

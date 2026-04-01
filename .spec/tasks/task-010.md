@@ -1,7 +1,7 @@
 ---
 task: 010
 feature: lazy-context-filtering-mcp
-status: pending
+status: done
 depends_on: [009]
 ---
 
@@ -62,17 +62,39 @@ _Skills: code-writing-software-development, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] Sessions created with UUID and 1-hour expiry
-- [ ] Expired sessions return session-expired error
-- [ ] Session history is passed to Python scorer
-- [ ] `end_session` cleans up session data
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] Sessions created with UUID and 1-hour expiry
+- [x] Expired sessions return session-expired error
+- [x] Session history is passed to Python scorer
+- [x] `end_session` cleans up session data
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:**
+- `src/server/session.ts`
+- `src/server/tools/session.ts`
+- `src/server/tools/filter.ts`
+- `src/server/engine-client.ts`
+- `src/server/index.ts`
+- `src/engine/models.py`
+- `src/engine/main.py`
+- `tests/server/test_session_tool.ts`
+- `tests/server/test_session_tool.test.ts`
+- `tests/server/test_filter_tool.ts`
+- `bug-log.md`
+
+**Decisions made:**
+- Implemented a dedicated `SessionService` for lifecycle operations and in-memory session history tracking.
+- Added periodic cleanup via `startSessionCleanup` with 5-minute interval.
+- Kept `session_history` optional in score API and `sessionId` optional in `filter_context` to preserve backward compatibility.
+- Recorded retrieved IDs after each filter call through `SessionService.updateSession`.
+
+**Context for next task:**
+- Session history is process-memory only and keyed by session ID; it is not persisted in Supabase yet.
+- Expired sessions are deleted on access (`getSession`) and also via periodic cleanup.
+- `create_session` and `end_session` MCP tools are now fully wired and return structured JSON payloads.
+
+**Open questions:**
+- Should session history be persisted in DB for multi-instance/server-restart continuity?

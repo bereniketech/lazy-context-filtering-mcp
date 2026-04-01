@@ -7,10 +7,12 @@ import * as z from "zod/v4";
 import { EngineClient } from "./engine-client.js";
 import { createStore } from "./store-factory.js";
 import type { Store } from "./store.js";
+import { SessionService, startSessionCleanup } from "./session.js";
 import { getContext } from "./tools/get.js";
 import { listContext } from "./tools/list.js";
 import { filterContext } from "./tools/filter.js";
 import { registerContext } from "./tools/register.js";
+import { createSessionTool, endSessionTool } from "./tools/session.js";
 
 export const SERVER_NAME = "lazy-context-filtering-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -43,7 +45,7 @@ const getToolSchema = {
 
 const filterToolSchema = {
   query: z.string().min(1),
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   maxItems: z.number().int().min(1).max(100).optional(),
   tokenBudget: z.number().int().min(1).optional(),
   minScore: z.number().min(0).max(1).optional()
@@ -58,15 +60,6 @@ const endSessionToolSchema = {
   sessionId: z.string().min(1)
 };
 
-function placeholderContent(toolName: string): { type: "text"; text: string }[] {
-  return [
-    {
-      type: "text",
-      text: `${toolName} stub executed`
-    }
-  ];
-}
-
 type CreateMcpServerOptions = {
   store?: Store;
   engineClient?: EngineClient;
@@ -79,6 +72,8 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   });
   const store = options?.store ?? createStore();
   const engineClient = options?.engineClient ?? new EngineClient();
+  const sessionService = new SessionService({ store });
+  startSessionCleanup(sessionService);
 
   server.registerTool(
     "register_context",
@@ -158,6 +153,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       const result = await filterContext({
         store,
         engineClient,
+        sessionService,
         input: {
           query,
           sessionId,
@@ -181,9 +177,20 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       description: "Create a lazy context filtering session.",
       inputSchema: createSessionToolSchema
     },
-    async () => ({
-      content: placeholderContent("create_session")
-    })
+    async ({ sessionId, userId }) => {
+      const result = await createSessionTool({
+        sessionService,
+        input: {
+          sessionId,
+          userId
+        }
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result as unknown as Record<string, unknown>
+      };
+    }
   );
 
   server.registerTool(
@@ -192,9 +199,19 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       description: "End an active lazy context filtering session.",
       inputSchema: endSessionToolSchema
     },
-    async () => ({
-      content: placeholderContent("end_session")
-    })
+    async ({ sessionId }) => {
+      const result = await endSessionTool({
+        sessionService,
+        input: {
+          sessionId
+        }
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result as unknown as Record<string, unknown>
+      };
+    }
   );
 
   return server;
