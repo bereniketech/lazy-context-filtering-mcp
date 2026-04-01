@@ -4,6 +4,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
+import { EngineClient } from "./engine-client.js";
+import { createStore } from "./store-factory.js";
+import type { Store } from "./store.js";
+import { registerContext, type RegisterEngineClient } from "./tools/register.js";
 
 export const SERVER_NAME = "lazy-context-filtering-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -19,9 +23,8 @@ export const MCP_TOOL_NAMES = [
 type SupportedTransport = "stdio" | "sse";
 
 const registerToolSchema = {
-  contextId: z.string().min(1),
   content: z.string().min(1),
-  source: z.string().min(1),
+  source: z.string().min(1).optional(),
   metadata: z.record(z.string(), z.unknown()).optional()
 };
 
@@ -59,11 +62,18 @@ function placeholderContent(toolName: string): { type: "text"; text: string }[] 
   ];
 }
 
-export function createMcpServer(): McpServer {
+type CreateMcpServerOptions = {
+  store?: Store;
+  engineClient?: RegisterEngineClient;
+};
+
+export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION
   });
+  const store = options?.store ?? createStore();
+  const engineClient = options?.engineClient ?? new EngineClient();
 
   server.registerTool(
     "register_context",
@@ -71,9 +81,22 @@ export function createMcpServer(): McpServer {
       description: "Register context content for later filtering.",
       inputSchema: registerToolSchema
     },
-    async () => ({
-      content: placeholderContent("register_context")
-    })
+    async ({ content, source, metadata }) => {
+      const result = await registerContext({
+        store,
+        engineClient,
+        input: {
+          content,
+          source,
+          metadata
+        }
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result
+      };
+    }
   );
 
   server.registerTool(

@@ -1,7 +1,7 @@
 ---
 task: 007
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [005, 006, 004]
 ---
 
@@ -61,16 +61,30 @@ _Skills: code-writing-software-development, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] New context items stored with ID, hash, summary, token count
-- [ ] Duplicate content returns existing ID without creating new entry
-- [ ] Content > 100KB is rejected with clear error
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] New context items stored with ID, hash, summary, token count
+- [x] Duplicate content returns existing ID without creating new entry
+- [x] Content > 100KB is rejected with clear error
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
-## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+## Handoff - What Was Done
+- Implemented `register_context` end-to-end via `src/server/tools/register.ts` with non-empty validation, 100KB byte limit enforcement, SHA-256 deduplication, engine-backed summary/token generation, and store persistence.
+- Added `src/server/engine-client.ts` HTTP client for Python engine `/score`, `/summarize`, and `/tokenize` endpoints with env-configurable base URL and timeout.
+- Replaced the MCP stub for `register_context` in `src/server/index.ts` and added tests for new registration, duplicate short-circuit, and size-limit rejection with mocked engine calls.
+
+## Handoff - Patterns Learned
+- Keep generated summary in `metadata.summary` so later lazy-list tools can serve summaries without exposing full `content`.
+- Run log/secrets audits with `findstr` fallback when `rg` is unavailable on Windows shells.
+- Keep tool logic separated from MCP wiring so behavior can be unit-tested without starting stdio transport.
+
+## Handoff - Files Changed
+- `src/server/engine-client.ts`
+- `src/server/index.ts`
+- `src/server/tools/register.ts`
+- `tests/server/test_register_tool.ts`
+- `tests/server/test_register_tool.test.ts`
+
+## Status
+COMPLETE
