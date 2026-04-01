@@ -9,6 +9,7 @@ export interface ContextItem {
 export interface ScoredContextItem extends ContextItem {
   relevanceScore: number;
   rank: number;
+  truncated?: boolean;
 }
 
 export interface FilterRequest {
@@ -21,8 +22,12 @@ export interface FilterRequest {
 
 export interface FilterResult {
   sessionId: string;
+  query: string;
   selectedItems: ScoredContextItem[];
   totalTokens: number;
+  tokenBudget?: number;
+  minScore: number;
+  totalCandidates: number;
   droppedItemIds: string[];
 }
 

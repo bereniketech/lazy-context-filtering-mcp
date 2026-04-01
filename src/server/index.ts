@@ -9,7 +9,8 @@ import { createStore } from "./store-factory.js";
 import type { Store } from "./store.js";
 import { getContext } from "./tools/get.js";
 import { listContext } from "./tools/list.js";
-import { registerContext, type RegisterEngineClient } from "./tools/register.js";
+import { filterContext } from "./tools/filter.js";
+import { registerContext } from "./tools/register.js";
 
 export const SERVER_NAME = "lazy-context-filtering-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -44,7 +45,8 @@ const filterToolSchema = {
   query: z.string().min(1),
   sessionId: z.string().min(1),
   maxItems: z.number().int().min(1).max(100).optional(),
-  maxTokens: z.number().int().min(1).optional()
+  tokenBudget: z.number().int().min(1).optional(),
+  minScore: z.number().min(0).max(1).optional()
 };
 
 const createSessionToolSchema = {
@@ -67,7 +69,7 @@ function placeholderContent(toolName: string): { type: "text"; text: string }[] 
 
 type CreateMcpServerOptions = {
   store?: Store;
-  engineClient?: RegisterEngineClient;
+  engineClient?: EngineClient;
 };
 
 export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
@@ -97,7 +99,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
 
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
-        structuredContent: result
+        structuredContent: result as unknown as Record<string, unknown>
       };
     }
   );
@@ -120,7 +122,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
 
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
-        structuredContent: result
+        structuredContent: result as unknown as Record<string, unknown>
       };
     }
   );
@@ -152,9 +154,25 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       description: "Filter context for a query and token budget.",
       inputSchema: filterToolSchema
     },
-    async () => ({
-      content: placeholderContent("filter_context")
-    })
+    async ({ query, sessionId, maxItems, tokenBudget, minScore }) => {
+      const result = await filterContext({
+        store,
+        engineClient,
+        input: {
+          query,
+          sessionId,
+          maxItems,
+          tokenBudget,
+          minScore
+        }
+      });
+      const structuredResult = result as unknown as Record<string, unknown>;
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: structuredResult
+      };
+    }
   );
 
   server.registerTool(

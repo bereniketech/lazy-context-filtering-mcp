@@ -1,7 +1,7 @@
 ---
 task: 009
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [003, 007]
 ---
 
@@ -59,17 +59,33 @@ _Skills: code-writing-software-development, api-design, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] Filter returns items ranked by relevance score
-- [ ] Token budget is respected — total tokens ≤ budget
-- [ ] Single oversized item is truncated with `truncated: true` flag
-- [ ] Token count metadata included in every response
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] Filter returns items ranked by relevance score
+- [x] Token budget is respected — total tokens ≤ budget
+- [x] Single oversized item is truncated with `truncated: true` flag
+- [x] Token count metadata included in every response
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:**
+- `src/server/index.ts`
+- `src/server/types.ts`
+- `src/server/token-counter.ts`
+- `src/server/tools/filter.ts`
+- `tests/server/test_filter_tool.ts`
+- `tests/server/test_filter_tool.test.ts`
+
+**Decisions made:**
+- `filter_context` delegates ranking to Python `/score`, then applies `minScore`, optional greedy budget packing, and top-item truncation when the highest-ranked item exceeds budget.
+- Token counting for truncation is delegated to Python `/tokenize` through a dedicated `token-counter.ts` helper.
+- Response metadata includes `query`, `totalTokens`, `tokenBudget`, `minScore`, `totalCandidates`, and `droppedItemIds`.
+
+**Context for next task:**
+- `filter_context` is fully implemented and no longer a stub in MCP registration.
+- `create_session` and `end_session` remain stubs and are ready for task 010 implementation.
+- New tests cover ranking, min-score filtering, budget enforcement, and truncation behavior.
+
+**Open questions:**
+- Should future session-aware scoring pass full session history to `/score` payload now, or add a dedicated endpoint contract update in the Python engine first?
