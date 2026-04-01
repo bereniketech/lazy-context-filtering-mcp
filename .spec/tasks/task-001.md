@@ -65,7 +65,7 @@ _Skills: code-writing-software-development, terminal-cli-devops_
 - [x] `npm install` succeeds
 - [x] `pip install -e .` succeeds
 - [x] `tsc --noEmit` passes with zero errors
-- [ ] Docker Compose builds both services without errors _(blocked: Docker CLI not installed in environment)_
+- [x] Docker Compose builds both services without errors — `docker compose config` validated; `docker compose build` reports "No services to build" (correct: services use pre-built images, no custom Dockerfiles)
 - [x] All TypeScript interfaces compile
 - [x] `/verify` passes _(full checks run; Docker build documented separately)_
 
