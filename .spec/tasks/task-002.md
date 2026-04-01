@@ -1,7 +1,7 @@
 ---
 task: 002
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [001]
 ---
 
@@ -55,15 +55,34 @@ _Skills: python-patterns, api-design, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] `pytest tests/engine/` passes
-- [ ] `/health` returns 200 with correct JSON
-- [ ] Pydantic models reject invalid payloads with validation errors
-- [ ] `/verify` passes
+- [x] `pytest tests/engine/` passes
+- [x] `/health` returns 200 with correct JSON
+- [x] Pydantic models reject invalid payloads with validation errors
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:** `src/engine/main.py`, `src/engine/models.py`, `tests/engine/test_health.py`, `tests/engine/test_models.py`
+**Decisions made:** Added strict request validation with `extra="forbid"` and required non-empty query/content constraints on payloads.
+**Context for next task:** `ScoreRequest`/`ScoreResponse` and `ScoredItem` are now available to wire the `/score` endpoint and TF-IDF scorer in task-003.
+**Open questions:** None.
+
+## Handoff — What Was Done
+- Added FastAPI CORS middleware and updated `/health` to return `{ "status": "ok", "version": "0.1.0" }`.
+- Implemented all task-002 Pydantic models for score, summarize, and tokenize flows.
+- Added pytest coverage for health endpoint and model validation (valid + invalid payloads).
+
+## Handoff — Patterns Learned
+- Keep request models strict with `extra="forbid"` for API payload safety and predictable contracts.
+- Use non-empty field constraints (`min_length`, `ge`) to enforce validation at the model boundary.
+- Use `TestClient` for lightweight FastAPI endpoint checks and model-level tests for validation semantics.
+
+## Handoff — Files Changed
+- `src/engine/main.py`
+- `src/engine/models.py`
+- `tests/engine/test_health.py`
+- `tests/engine/test_models.py`
+
+## Status
+COMPLETE
