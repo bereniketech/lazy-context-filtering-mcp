@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import { CacheManager, createFilterCacheKey } from "../../src/server/cache.js";
 import { InMemoryStore } from "../../src/server/memory-store.js";
+import { filterContext } from "../../src/server/tools/filter.js";
 import { MAX_CONTEXT_BYTES, registerContext } from "../../src/server/tools/register.js";
 
 function hashContent(content: string): string {
@@ -8,6 +10,54 @@ function hashContent(content: string): string {
 }
 
 describe("register_context tool", () => {
+  it("invalidates cached filter results on context changes", async () => {
+    const cacheManager = new CacheManager({ ttlMs: 60_000, maxEntries: 100 });
+    const store = new InMemoryStore(cacheManager);
+
+    await store.contextItems.create({
+      id: "ctx-existing",
+      content: "Existing content",
+      source: "seed",
+      contentHash: hashContent("Existing content"),
+      tokenCount: 2,
+      metadata: {}
+    });
+
+    await filterContext({
+      store,
+      cacheManager,
+      engineClient: {
+        score: vi.fn().mockResolvedValue([{ id: "ctx-existing", text: "Existing content", score: 0.9 }]),
+        tokenize: vi.fn().mockResolvedValue(0)
+      },
+      input: {
+        query: "existing",
+        sessionId: "session-register"
+      }
+    });
+
+    const beforeRegisterKey = createFilterCacheKey({
+      query: "existing",
+      sessionId: "session-register",
+      contextIds: ["ctx-existing"]
+    });
+    expect(cacheManager.get(beforeRegisterKey)).not.toBeNull();
+
+    await registerContext({
+      store,
+      cacheManager,
+      engineClient: {
+        summarize: vi.fn().mockResolvedValue("new summary"),
+        tokenize: vi.fn().mockResolvedValue(10)
+      },
+      input: {
+        content: "Brand new context"
+      }
+    });
+
+    expect(cacheManager.get(beforeRegisterKey)).toBeNull();
+  });
+
   it("registers new content and stores summary + token count", async () => {
     const store = new InMemoryStore();
     const summarize = vi.fn().mockResolvedValue("Short summary");

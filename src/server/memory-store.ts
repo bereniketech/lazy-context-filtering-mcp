@@ -8,6 +8,7 @@ import {
   type Store,
   type UpdateSessionInput
 } from "./store.js";
+import { filterResultCache, type FilterResultCache } from "./cache.js";
 
 function toIsoNow(): string {
   return new Date().toISOString();
@@ -18,6 +19,11 @@ export class InMemoryStore implements Store {
   private readonly contextIdsByHash = new Map<string, string>();
   private readonly sessionsById = new Map<string, SessionRecord>();
   private readonly filterCacheByKey = new Map<string, FilterCacheRecord>();
+  private readonly cacheManager: FilterResultCache;
+
+  public constructor(cacheManager: FilterResultCache = filterResultCache) {
+    this.cacheManager = cacheManager;
+  }
 
   public readonly contextItems: Store["contextItems"] = {
     create: async (input: CreateContextItemInput): Promise<ContextItemRecord> => {
@@ -69,6 +75,7 @@ export class InMemoryStore implements Store {
 
       this.contextItemsById.delete(id);
       this.contextIdsByHash.delete(existing.contentHash);
+      this.cacheManager.invalidate(id);
       return true;
     }
   };

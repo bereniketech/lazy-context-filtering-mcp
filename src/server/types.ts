@@ -25,6 +25,7 @@ export interface FilterResult {
   query: string;
   selectedItems: ScoredContextItem[];
   totalTokens: number;
+  cached?: boolean;
   tokenBudget?: number;
   minScore: number;
   totalCandidates: number;

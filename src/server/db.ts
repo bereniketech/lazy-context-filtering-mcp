@@ -9,6 +9,7 @@ import {
   type Store,
   type UpdateSessionInput
 } from "./store.js";
+import { filterResultCache, type FilterResultCache } from "./cache.js";
 
 type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 
@@ -80,8 +81,11 @@ function mapFilterCache(row: FilterCacheRow): FilterCacheRecord {
 
 export class SupabaseStore implements Store {
   private readonly client: SupabaseClient;
+  private readonly cacheManager: FilterResultCache;
 
-  public constructor(clientOrUrl?: SupabaseClient | string, maybeKey?: string) {
+  public constructor(clientOrUrl?: SupabaseClient | string, maybeKey?: string, cacheManager: FilterResultCache = filterResultCache) {
+    this.cacheManager = cacheManager;
+
     if (typeof clientOrUrl === "string") {
       this.client = createClient(clientOrUrl, maybeKey ?? process.env.SUPABASE_ANON_KEY ?? "public-anon-key");
       return;
@@ -190,6 +194,10 @@ export class SupabaseStore implements Store {
 
       if (error) {
         throw error;
+      }
+
+      if ((count ?? 0) > 0) {
+        this.cacheManager.invalidate(id);
       }
 
       return (count ?? 0) > 0;

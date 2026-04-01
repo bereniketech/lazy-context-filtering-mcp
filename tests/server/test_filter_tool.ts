@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { CacheManager } from "../../src/server/cache.js";
 import { InMemoryStore } from "../../src/server/memory-store.js";
+import { SessionService } from "../../src/server/session.js";
 import { filterContext } from "../../src/server/tools/filter.js";
 
 async function seedItems(store: InMemoryStore): Promise<void> {
@@ -38,6 +40,97 @@ async function seedItems(store: InMemoryStore): Promise<void> {
 }
 
 describe("filter_context tool", () => {
+  it("returns cached results for repeated identical queries", async () => {
+    const cacheManager = new CacheManager({ ttlMs: 1_000, maxEntries: 100 });
+    const store = new InMemoryStore(cacheManager);
+    await seedItems(store);
+
+    const score = vi.fn().mockResolvedValue([
+      { id: "ctx-2", text: "Beta content body", score: 0.95 },
+      { id: "ctx-1", text: "Alpha content body", score: 0.75 },
+      { id: "ctx-3", text: "Gamma content body", score: 0.5 }
+    ]);
+
+    const first = await filterContext({
+      store,
+      cacheManager,
+      engineClient: {
+        score,
+        tokenize: vi.fn().mockResolvedValue(0)
+      },
+      input: {
+        query: "beta topic",
+        sessionId: "session-cache"
+      }
+    });
+
+    const second = await filterContext({
+      store,
+      cacheManager,
+      engineClient: {
+        score,
+        tokenize: vi.fn().mockResolvedValue(0)
+      },
+      input: {
+        query: "beta topic",
+        sessionId: "session-cache"
+      }
+    });
+
+    expect(first.cached).toBeUndefined();
+    expect(second.cached).toBe(true);
+    expect(second.selectedItems.map((item) => item.id)).toEqual(first.selectedItems.map((item) => item.id));
+    expect(score).toHaveBeenCalledTimes(1);
+  });
+
+  it("recomputes results after cache TTL expiry", async () => {
+    vi.useFakeTimers();
+    try {
+      const cacheManager = new CacheManager({ ttlMs: 50, maxEntries: 100 });
+      const store = new InMemoryStore(cacheManager);
+      await seedItems(store);
+
+      const score = vi.fn().mockResolvedValue([
+        { id: "ctx-2", text: "Beta content body", score: 0.95 },
+        { id: "ctx-1", text: "Alpha content body", score: 0.75 },
+        { id: "ctx-3", text: "Gamma content body", score: 0.5 }
+      ]);
+
+      await filterContext({
+        store,
+        cacheManager,
+        engineClient: {
+          score,
+          tokenize: vi.fn().mockResolvedValue(0)
+        },
+        input: {
+          query: "beta topic",
+          sessionId: "session-cache-ttl"
+        }
+      });
+
+      vi.advanceTimersByTime(51);
+
+      const afterExpiry = await filterContext({
+        store,
+        cacheManager,
+        engineClient: {
+          score,
+          tokenize: vi.fn().mockResolvedValue(0)
+        },
+        input: {
+          query: "beta topic",
+          sessionId: "session-cache-ttl"
+        }
+      });
+
+      expect(afterExpiry.cached).toBeUndefined();
+      expect(score).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns items ranked by relevance score", async () => {
     const store = new InMemoryStore();
     await seedItems(store);
@@ -149,5 +242,49 @@ describe("filter_context tool", () => {
     expect(result.selectedItems[0]?.tokenCount).toBeLessThanOrEqual(5);
     expect(result.totalTokens).toBeLessThanOrEqual(5);
     expect(tokenize).toHaveBeenCalled();
+  });
+
+  it("passes session history to scorer and records retrieved ids", async () => {
+    const store = new InMemoryStore();
+    await seedItems(store);
+
+    const sessionService = new SessionService({
+      store,
+      idGenerator: () => "session-history"
+    });
+
+    await sessionService.createSession();
+    await sessionService.updateSession("session-history", "previous query", ["ctx-2"]);
+
+    const score = vi.fn().mockResolvedValue([
+      { id: "ctx-1", text: "Alpha content body", score: 0.9 },
+      { id: "ctx-2", text: "Beta content body", score: 0.7 }
+    ]);
+
+    const result = await filterContext({
+      store,
+      sessionService,
+      engineClient: {
+        score,
+        tokenize: vi.fn().mockResolvedValue(0)
+      },
+      input: {
+        query: "current query",
+        sessionId: "session-history",
+        maxItems: 2
+      }
+    });
+
+    expect(score).toHaveBeenCalledWith(
+      "current query",
+      expect.any(Array),
+      expect.any(Number),
+      ["previous query", "current query"]
+    );
+
+    const updatedSession = await sessionService.getSession("session-history");
+    expect(updatedSession.queryCount).toBe(2);
+    expect(updatedSession.history).toHaveLength(2);
+    expect(updatedSession.history[1]?.retrievedIds).toEqual(result.selectedItems.map((item) => item.id));
   });
 });

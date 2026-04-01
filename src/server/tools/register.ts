@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import type { Store } from "../store.js";
+import { filterResultCache, type FilterResultCache } from "../cache.js";
 
 export const MAX_CONTEXT_BYTES = 100 * 1024;
 const MAX_CONTEXT_SIZE_LABEL = "100KB";
@@ -28,6 +29,7 @@ type RegisterContextDeps = {
   store: Store;
   engineClient: RegisterEngineClient;
   idGenerator?: () => string;
+  cacheManager?: FilterResultCache;
 };
 
 type RegisterContextParams = RegisterContextDeps & {
@@ -52,6 +54,7 @@ function ensureValidContentSize(content: string): void {
 
 export async function registerContext(params: RegisterContextParams): Promise<RegisterContextResult> {
   const { store, engineClient, idGenerator, input } = params;
+  const cacheManager = params.cacheManager ?? filterResultCache;
   const normalizedContent = input.content.trim();
   if (normalizedContent.length === 0) {
     throw new Error("Context content must be non-empty");
@@ -85,6 +88,8 @@ export async function registerContext(params: RegisterContextParams): Promise<Re
       summary
     }
   });
+
+  cacheManager.clear();
 
   return {
     id,

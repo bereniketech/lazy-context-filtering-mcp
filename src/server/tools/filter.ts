@@ -1,6 +1,8 @@
 import type { FilterResult, ScoredContextItem } from "../types.js";
 import { createTokenCounter, type TokenCounter } from "../token-counter.js";
+import type { SessionService } from "../session.js";
 import type { ContextItemRecord, Store } from "../store.js";
+import { createFilterCacheKey, filterResultCache, type FilterResultCache } from "../cache.js";
 
 const BATCH_SIZE = 500;
 const DEFAULT_MAX_ITEMS = 20;
@@ -8,7 +10,7 @@ const DEFAULT_MIN_SCORE = 0;
 
 type FilterContextInput = {
   query: string;
-  sessionId: string;
+  sessionId?: string;
   maxItems?: number;
   tokenBudget?: number;
   minScore?: number;
@@ -18,7 +20,8 @@ type FilterEngineClient = {
   score(
     query: string,
     items: Array<{ id: string; text: string; metadata?: Record<string, unknown> }>,
-    topK?: number
+    topK?: number,
+    sessionHistory?: string[]
   ): Promise<Array<{ id: string; text: string; score: number; metadata?: Record<string, unknown> }>>;
   tokenize(text: string): Promise<number>;
 };
@@ -26,7 +29,9 @@ type FilterEngineClient = {
 type FilterContextDeps = {
   store: Store;
   engineClient: FilterEngineClient;
+  sessionService?: SessionService;
   tokenCounter?: TokenCounter;
+  cacheManager?: FilterResultCache;
 };
 
 type FilterContextParams = FilterContextDeps & {
@@ -156,15 +161,42 @@ function packWithinBudget(items: ScoredContextItem[], budget: number): {
 }
 
 export async function filterContext(params: FilterContextParams): Promise<FilterResult> {
-  const { store, engineClient, input } = params;
+  const { store, engineClient, input, sessionService } = params;
   const tokenCounter = params.tokenCounter ?? createTokenCounter(engineClient);
+  const cacheManager = params.cacheManager ?? filterResultCache;
   const minScore = input.minScore ?? DEFAULT_MIN_SCORE;
   const maxItems = input.maxItems ?? DEFAULT_MAX_ITEMS;
+  const session = input.sessionId && sessionService ? await sessionService.getSession(input.sessionId) : null;
+  const sessionHistory = session ? [...session.history.map((item) => item.query), input.query] : undefined;
+  const updateSessionHistory = async (retrievedIds: string[]): Promise<void> => {
+    if (!session || !input.sessionId || !sessionService) {
+      return;
+    }
+
+    await sessionService.updateSession(input.sessionId, input.query, retrievedIds);
+  };
 
   const records = await listAllContextItems(store);
-  if (records.length === 0) {
+  const cacheKey = createFilterCacheKey({
+    query: input.query,
+    sessionId: input.sessionId,
+    contextIds: records.map((record) => record.id)
+  });
+
+  const cachedResult = cacheManager.get(cacheKey);
+  if (cachedResult) {
+    await updateSessionHistory(cachedResult.selectedItems.map((item) => item.id));
     return {
-      sessionId: input.sessionId,
+      ...cachedResult,
+      cached: true
+    };
+  }
+
+  if (records.length === 0) {
+    await updateSessionHistory([]);
+
+    const result: FilterResult = {
+      sessionId: input.sessionId ?? "",
       query: input.query,
       selectedItems: [],
       totalTokens: 0,
@@ -173,6 +205,9 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       totalCandidates: 0,
       droppedItemIds: []
     };
+
+    cacheManager.set(cacheKey, result, []);
+    return result;
   }
 
   const recordsById = new Map(records.map((record) => [record.id, record]));
@@ -183,13 +218,16 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       text: record.content,
       metadata: record.metadata
     })),
-    records.length
+    records.length,
+    sessionHistory
   );
 
   const rankedItems = buildScoredItems(recordsById, scoredByEngine, minScore, maxItems);
   if (input.tokenBudget === undefined) {
-    return {
-      sessionId: input.sessionId,
+    await updateSessionHistory(rankedItems.map((item) => item.id));
+
+    const result: FilterResult = {
+      sessionId: input.sessionId ?? "",
       query: input.query,
       selectedItems: rankedItems,
       totalTokens: rankedItems.reduce((sum, item) => sum + item.tokenCount, 0),
@@ -198,14 +236,17 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       totalCandidates: rankedItems.length,
       droppedItemIds: []
     };
+
+    cacheManager.set(cacheKey, result, records.map((record) => record.id));
+    return result;
   }
 
   const topItem = rankedItems[0];
   if (topItem && topItem.tokenCount > input.tokenBudget) {
     const truncated = await truncateToBudget(topItem.content, input.tokenBudget, tokenCounter);
     if (truncated.tokenCount === 0) {
-      return {
-        sessionId: input.sessionId,
+      const result: FilterResult = {
+        sessionId: input.sessionId ?? "",
         query: input.query,
         selectedItems: [],
         totalTokens: 0,
@@ -214,6 +255,9 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
         totalCandidates: rankedItems.length,
         droppedItemIds: rankedItems.map((item) => item.id)
       };
+
+      cacheManager.set(cacheKey, result, records.map((record) => record.id));
+      return result;
     }
 
     const truncatedItem: ScoredContextItem = {
@@ -223,8 +267,10 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       truncated: true
     };
 
-    return {
-      sessionId: input.sessionId,
+    await updateSessionHistory([truncatedItem.id]);
+
+    const result: FilterResult = {
+      sessionId: input.sessionId ?? "",
       query: input.query,
       selectedItems: [truncatedItem],
       totalTokens: truncated.tokenCount,
@@ -233,12 +279,17 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       totalCandidates: rankedItems.length,
       droppedItemIds: rankedItems.slice(1).map((item) => item.id)
     };
+
+    cacheManager.set(cacheKey, result, records.map((record) => record.id));
+    return result;
   }
 
   const packed = packWithinBudget(rankedItems, input.tokenBudget);
   if (packed.selectedItems.length > 0) {
-    return {
-      sessionId: input.sessionId,
+    await updateSessionHistory(packed.selectedItems.map((item) => item.id));
+
+    const result: FilterResult = {
+      sessionId: input.sessionId ?? "",
       query: input.query,
       selectedItems: packed.selectedItems,
       totalTokens: packed.totalTokens,
@@ -247,11 +298,16 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       totalCandidates: rankedItems.length,
       droppedItemIds: packed.droppedItemIds
     };
+
+    cacheManager.set(cacheKey, result, records.map((record) => record.id));
+    return result;
   }
 
   if (!topItem || input.tokenBudget <= 0) {
-    return {
-      sessionId: input.sessionId,
+    await updateSessionHistory([]);
+
+    const result: FilterResult = {
+      sessionId: input.sessionId ?? "",
       query: input.query,
       selectedItems: [],
       totalTokens: 0,
@@ -260,10 +316,15 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       totalCandidates: rankedItems.length,
       droppedItemIds: rankedItems.map((item) => item.id)
     };
+
+    cacheManager.set(cacheKey, result, records.map((record) => record.id));
+    return result;
   }
 
-  return {
-    sessionId: input.sessionId,
+  await updateSessionHistory([]);
+
+  const result: FilterResult = {
+    sessionId: input.sessionId ?? "",
     query: input.query,
     selectedItems: [],
     totalTokens: 0,
@@ -272,6 +333,9 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
     totalCandidates: rankedItems.length,
     droppedItemIds: rankedItems.map((item) => item.id)
   };
+
+  cacheManager.set(cacheKey, result, records.map((record) => record.id));
+  return result;
 }
 
 export type { FilterContextDeps, FilterContextInput, FilterContextParams, FilterEngineClient };
