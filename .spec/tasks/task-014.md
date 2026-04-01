@@ -1,7 +1,7 @@
 ---
 task: 014
 feature: lazy-context-filtering-mcp
-status: pending
+status: done
 depends_on: [012]
 ---
 
@@ -59,15 +59,24 @@ _Skills: terminal-cli-devops_
 ---
 
 ## Acceptance Criteria
-- [ ] CI workflow runs on PR and tests both TS and Python
-- [ ] Deploy workflow triggers on main push
-- [ ] CI failure blocks merge (documented branch protection setup)
-- [ ] `/verify` passes
+- [x] CI workflow runs on PR and tests both TS and Python
+- [x] Deploy workflow triggers on main push
+- [x] CI failure blocks merge (documented branch protection setup)
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:**
+- `.github/workflows/ci.yml` — CI workflow: lint (ESLint + ruff), typecheck, Vitest + pytest on PR to main
+- `.github/workflows/deploy.yml` — Deploy workflow: Render backend via deploy hook, Vercel dashboard via CLI on push to main
+
+**Decisions made:**
+- Used `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5` with pinned versions
+- CI split into three parallel jobs: lint-typecheck, test-ts, test-python
+- Deploy uses `environment: production` to enforce approval gates and secret scoping
+- `deploy-dashboard` depends on `deploy-backend` to prevent partial deploys
+
+**Context for next task:** Secrets required in GitHub repo: `RENDER_DEPLOY_HOOK_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Branch protection rules (require CI jobs to pass before merge) must be configured manually by the repo admin.
+
+**Open questions:** None.
