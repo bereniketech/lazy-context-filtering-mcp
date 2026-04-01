@@ -1,7 +1,7 @@
 ---
 task: 004
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [002]
 ---
 
@@ -66,8 +66,25 @@ _Skills: python-patterns, tdd-workflow_
 
 ---
 
-## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+## Handoff - What Was Done
+- Added `count_tokens(text, model_family)` in `src/engine/tokenizer.py` with `tiktoken` support for GPT and character-based approximation for Claude/generic families.
+- Added extractive summarization in `src/engine/summarizer.py` using first-sentence extraction plus TF-IDF key terms with single-line and max-length enforcement.
+- Wired `/summarize` and `/tokenize` endpoints in `src/engine/main.py` and aligned API payload models.
+- Added tests in `tests/engine/test_tokenizer.py` and `tests/engine/test_summarizer.py` covering function behavior and endpoint responses.
+
+## Handoff - Patterns Learned
+- Keep Python request/response schemas strict with `extra="forbid"` to reject unknown payload fields.
+- Prefer deterministic summary formatting (normalized whitespace + bounded truncation) to keep API output stable for downstream consumers.
+- On Windows in this environment, use cmd-based fallbacks for grep audits when `rg` is unavailable.
+
+## Handoff - Files Changed
+- src/engine/main.py
+- src/engine/models.py
+- src/engine/tokenizer.py
+- src/engine/summarizer.py
+- tests/engine/test_tokenizer.py
+- tests/engine/test_summarizer.py
+- .spec/tasks/task-004.md
+
+## Status
+COMPLETE

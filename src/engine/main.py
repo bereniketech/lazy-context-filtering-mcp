@@ -2,8 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from engine.filter import filter_items
-from engine.models import ScoreRequest, ScoreResponse
+from engine.models import (
+    ScoreRequest,
+    ScoreResponse,
+    SummarizeRequest,
+    SummarizeResponse,
+    TokenizeRequest,
+    TokenizeResponse,
+)
 from engine.scorer import TFIDFScorer
+from engine.summarizer import summarize
+from engine.tokenizer import count_tokens
 
 app = FastAPI(title="lazy-context-filtering-engine")
 
@@ -35,3 +44,14 @@ async def score(request: ScoreRequest) -> ScoreResponse:
     filtered_items = filter_items(scored_items, min_score=0.0, limit=request.top_k)
     
     return ScoreResponse(items=filtered_items)
+
+
+@app.post("/summarize")
+async def summarize_text(request: SummarizeRequest) -> SummarizeResponse:
+    return SummarizeResponse(summary=summarize(request.text, request.max_length))
+
+
+@app.post("/tokenize")
+async def tokenize_text(request: TokenizeRequest) -> TokenizeResponse:
+    token_count = count_tokens(request.text, request.model_family)
+    return TokenizeResponse(token_count=token_count, tokens=[])
