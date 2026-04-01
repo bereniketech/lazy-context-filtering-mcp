@@ -5,13 +5,14 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tseslint.parser,
       ecmaVersion: "latest",
       sourceType: "module"
     },
     rules: {
+      "no-undef": "off",
       "no-console": "warn"
     }
   },
