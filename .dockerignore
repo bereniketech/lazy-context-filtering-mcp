@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.spec
+.venv
+node_modules
+dist
+coverage
+*.log
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite
+.DS_Store
