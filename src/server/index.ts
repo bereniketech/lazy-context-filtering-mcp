@@ -7,6 +7,8 @@ import * as z from "zod/v4";
 import { EngineClient } from "./engine-client.js";
 import { createStore } from "./store-factory.js";
 import type { Store } from "./store.js";
+import { getContext } from "./tools/get.js";
+import { listContext } from "./tools/list.js";
 import { registerContext, type RegisterEngineClient } from "./tools/register.js";
 
 export const SERVER_NAME = "lazy-context-filtering-mcp";
@@ -29,12 +31,13 @@ const registerToolSchema = {
 };
 
 const listToolSchema = {
-  sessionId: z.string().min(1).optional(),
-  limit: z.number().int().min(1).max(100).optional()
+  tags: z.array(z.string().min(1)).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional()
 };
 
 const getToolSchema = {
-  contextId: z.string().min(1)
+  ids: z.array(z.string().min(1)).min(1)
 };
 
 const filterToolSchema = {
@@ -105,9 +108,21 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       description: "List available context records.",
       inputSchema: listToolSchema
     },
-    async () => ({
-      content: placeholderContent("list_context")
-    })
+    async ({ tags, limit, offset }) => {
+      const result = await listContext({
+        store,
+        input: {
+          tags,
+          limit,
+          offset
+        }
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result
+      };
+    }
   );
 
   server.registerTool(
@@ -116,9 +131,19 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       description: "Get a context record by ID.",
       inputSchema: getToolSchema
     },
-    async () => ({
-      content: placeholderContent("get_context")
-    })
+    async ({ ids }) => {
+      const result = await getContext({
+        store,
+        input: {
+          ids
+        }
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result
+      };
+    }
   );
 
   server.registerTool(

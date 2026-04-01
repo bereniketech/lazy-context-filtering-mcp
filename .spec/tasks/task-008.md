@@ -1,7 +1,7 @@
 ---
 task: 008
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [006, 007]
 ---
 
@@ -60,17 +60,31 @@ _Skills: code-writing-software-development, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] `list_context` returns summaries only (no `content` field)
-- [ ] Tag filtering and pagination work correctly
-- [ ] `get_context` returns full content for valid IDs
-- [ ] Missing IDs return not-found error
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] `list_context` returns summaries only (no `content` field)
+- [x] Tag filtering and pagination work correctly
+- [x] `get_context` returns full content for valid IDs
+- [x] Missing IDs return not-found error
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
-## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+## Handoff - What Was Done
+- Implemented `list_context` in `src/server/tools/list.ts` with tags filtering, pagination defaults (`limit=50`, `offset=0`), and summary-only response shape that excludes full content.
+- Implemented `get_context` in `src/server/tools/get.ts` with multi-ID retrieval, deterministic output ordering, and not-found MCP error (`InvalidParams` + `statusCode: 404`).
+- Wired both tools into MCP in `src/server/index.ts` by replacing stubs and updating schemas (`list: tags/limit/offset`, `get: ids[]`), and added unit tests for all acceptance paths.
+
+## Handoff - Patterns Learned
+- Keep tool business logic isolated in `src/server/tools/*.ts` and keep MCP handlers thin to simplify unit testing without transport setup.
+- Treat `findstr` exit code `1` as "no matches" for Windows log/secrets audits in this repo.
+- Store `summary` in metadata but strip it from `metadata` in list responses to keep API payload intent explicit.
+
+## Handoff - Files Changed
+- `src/server/index.ts`
+- `src/server/tools/get.ts`
+- `src/server/tools/list.ts`
+- `tests/server/test_context_retrieval_tools.ts`
+- `tests/server/test_context_retrieval_tools.test.ts`
+
+## Status
+COMPLETE
