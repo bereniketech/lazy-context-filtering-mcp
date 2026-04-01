@@ -8,6 +8,7 @@ import { EngineClient } from "./engine-client.js";
 import { createStore } from "./store-factory.js";
 import type { Store } from "./store.js";
 import { SessionService, startSessionCleanup } from "./session.js";
+import { createDashboardApiRouter } from "./api.js";
 import { getContext } from "./tools/get.js";
 import { listContext } from "./tools/list.js";
 import { filterContext } from "./tools/filter.js";
@@ -63,6 +64,7 @@ const endSessionToolSchema = {
 type CreateMcpServerOptions = {
   store?: Store;
   engineClient?: EngineClient;
+  sessionService?: SessionService;
 };
 
 export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
@@ -72,8 +74,10 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   });
   const store = options?.store ?? createStore();
   const engineClient = options?.engineClient ?? new EngineClient();
-  const sessionService = new SessionService({ store });
-  startSessionCleanup(sessionService);
+  const sessionService = options?.sessionService ?? new SessionService({ store });
+  if (!options?.sessionService) {
+    startSessionCleanup(sessionService);
+  }
 
   server.registerTool(
     "register_context",
@@ -235,6 +239,18 @@ export async function startSseServer(): Promise<void> {
   const app = express();
   app.use(express.json());
 
+  const store = createStore();
+  const engineClient = new EngineClient();
+  const sessionService = new SessionService({ store });
+  startSessionCleanup(sessionService);
+
+  app.use(
+    "/api",
+    createDashboardApiRouter({
+      store
+    })
+  );
+
   const transports: Record<string, SSEServerTransport> = {};
   const port = Number(process.env.PORT ?? 3000);
 
@@ -251,7 +267,11 @@ export async function startSseServer(): Promise<void> {
       delete transports[sessionId];
     };
 
-    const server = createMcpServer();
+    const server = createMcpServer({
+      store,
+      engineClient,
+      sessionService
+    });
     await server.connect(transport);
   });
 

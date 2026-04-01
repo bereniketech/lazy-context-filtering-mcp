@@ -1,7 +1,7 @@
 ---
 task: 012
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [008, 010, 011]
 ---
 
@@ -59,16 +59,39 @@ _Skills: code-writing-software-development, api-design, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] All 6 REST endpoints return correct data
-- [ ] Config updates apply immediately
-- [ ] Context deletion invalidates cache
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] All 6 REST endpoints return correct data
+- [x] Config updates apply immediately
+- [x] Context deletion invalidates cache
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:** `src/server/api.ts`, `src/server/index.ts`, `src/server/store.ts`, `src/server/memory-store.ts`, `src/server/db.ts`, `tests/server/test_dashboard_api.ts`, `tests/server/test_dashboard_api.test.ts`, `package.json`, `package-lock.json`
+**Decisions made:** Dashboard API and MCP SSE transport share one store/session service instance so dashboard metrics reflect live tool activity in the same process.
+**Context for next task:** REST endpoints now available at `/api/status`, `/api/context`, `/api/context/:id`, `/api/sessions`, `/api/config`, `/api/analytics` with supertest coverage.
+**Open questions:** Should `PUT /api/config` values feed directly into filter/session runtime defaults in this task or a follow-up task?
+
+## Handoff — What Was Done
+- Implemented dashboard REST routes for status, paginated context listing, context deletion, sessions listing, mutable config, and per-session analytics.
+- Mounted `/api` routes into the Express SSE server on port 3000 and shared store/session state between dashboard and MCP endpoints.
+- Added integration tests using supertest that validate all API routes and cache invalidation behavior.
+
+## Handoff — Patterns Learned
+- Reuse shared in-memory state at server startup; avoid creating a fresh store per SSE connection when dashboard and MCP must observe the same data.
+- Keep route logic store-driven and dependency-injected (uptime/engine health hooks) to keep API integration tests deterministic.
+
+## Handoff — Files Changed
+- `src/server/api.ts`
+- `src/server/index.ts`
+- `src/server/store.ts`
+- `src/server/memory-store.ts`
+- `src/server/db.ts`
+- `tests/server/test_dashboard_api.ts`
+- `tests/server/test_dashboard_api.test.ts`
+- `package.json`
+- `package-lock.json`
+
+## Status
+COMPLETE

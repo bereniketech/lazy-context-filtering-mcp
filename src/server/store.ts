@@ -70,12 +70,14 @@ export interface Store {
   sessions: {
     create(input: CreateSessionInput): Promise<SessionRecord>;
     getById(id: string): Promise<SessionRecord | null>;
+    list(nowIso?: string): Promise<SessionRecord[]>;
     update(id: string, updates: UpdateSessionInput): Promise<SessionRecord | null>;
     delete(id: string): Promise<boolean>;
     deleteExpired(nowIso?: string): Promise<number>;
   };
   filterCache: {
     get(key: string): Promise<FilterCacheRecord | null>;
+    list(): Promise<FilterCacheRecord[]>;
     set(input: SetFilterCacheInput): Promise<FilterCacheRecord>;
     invalidate(sessionId: string): Promise<number>;
     deleteExpired(nowIso?: string): Promise<number>;

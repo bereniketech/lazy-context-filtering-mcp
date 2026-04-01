@@ -236,6 +236,21 @@ export class SupabaseStore implements Store {
 
       return data ? mapSession(data) : null;
     },
+    list: async (nowIso?: string): Promise<SessionRecord[]> => {
+      const cutoff = nowIso ?? new Date().toISOString();
+      const { data, error } = await this.client
+        .from("sessions")
+        .select("*")
+        .or(`expires_at.is.null,expires_at.gt.${cutoff}`)
+        .order("created_at", { ascending: true })
+        .returns<SessionRow[]>();
+
+      if (error) {
+        throw error;
+      }
+
+      return (data ?? []).map(mapSession);
+    },
     update: async (id: string, updates: UpdateSessionInput): Promise<SessionRecord | null> => {
       const { data, error } = await this.client
         .from("sessions")
@@ -296,6 +311,20 @@ export class SupabaseStore implements Store {
       }
 
       return data ? mapFilterCache(data) : null;
+    },
+    list: async (): Promise<FilterCacheRecord[]> => {
+      const { data, error } = await this.client
+        .from("filter_cache")
+        .select("*")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true })
+        .returns<FilterCacheRow[]>();
+
+      if (error) {
+        throw error;
+      }
+
+      return (data ?? []).map(mapFilterCache);
     },
     set: async (input: SetFilterCacheInput): Promise<FilterCacheRecord> => {
       const { data, error } = await this.client

@@ -98,6 +98,13 @@ export class InMemoryStore implements Store {
     getById: async (id: string): Promise<SessionRecord | null> => {
       return this.sessionsById.get(id) ?? null;
     },
+    list: async (nowIso?: string): Promise<SessionRecord[]> => {
+      const now = Date.parse(nowIso ?? toIsoNow());
+
+      return [...this.sessionsById.values()]
+        .filter((session) => !session.expiresAt || Date.parse(session.expiresAt) > now)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    },
     update: async (id: string, updates: UpdateSessionInput): Promise<SessionRecord | null> => {
       const existing = this.sessionsById.get(id);
       if (!existing) {
@@ -150,6 +157,13 @@ export class InMemoryStore implements Store {
       }
 
       return record;
+    },
+    list: async (): Promise<FilterCacheRecord[]> => {
+      const now = Date.now();
+
+      return [...this.filterCacheByKey.values()]
+        .filter((record) => Date.parse(record.expiresAt) > now)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
     set: async (input: SetFilterCacheInput): Promise<FilterCacheRecord> => {
       const now = toIsoNow();
