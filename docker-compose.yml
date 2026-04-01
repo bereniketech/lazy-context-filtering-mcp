@@ -1,0 +1,22 @@
+services:
+  server:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - ./:/app
+    ports:
+      - "3000:3000"
+    environment:
+      ENGINE_URL: http://engine:8100
+    depends_on:
+      - engine
+
+  engine:
+    image: python:3.11-slim
+    working_dir: /app
+    command: sh -c "pip install -e . && uvicorn src.engine.main:app --host 0.0.0.0 --port 8100"
+    volumes:
+      - ./:/app
+    ports:
+      - "8100:8100"

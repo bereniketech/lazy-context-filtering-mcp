@@ -1,0 +1,1 @@
+## [2026-04-01] ESLint scanned virtualenv files | What broke: `npm run lint` failed with 19 errors from `.venv/Lib/site-packages` JavaScript files | Root cause: ESLint was configured to lint the whole workspace without excluding Python virtualenv artifacts | Fix: added ignore rules for `.venv/**`, Python files, and `__pycache__` in flat ESLint config | File(s): eslint.config.js
