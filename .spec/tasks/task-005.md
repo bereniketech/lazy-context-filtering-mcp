@@ -1,7 +1,7 @@
 ---
 task: 005
 feature: lazy-context-filtering-mcp
-status: pending
+status: complete
 depends_on: [001]
 ---
 
@@ -61,17 +61,52 @@ _Skills: code-writing-software-development, api-design, tdd-workflow_
 ---
 
 ## Acceptance Criteria
-- [ ] MCP client connects via stdio
-- [ ] `initialize` handshake succeeds
-- [ ] `tools/list` returns 6 tools with correct names and schemas
-- [ ] Malformed requests return standard MCP errors
-- [ ] All tests pass
-- [ ] `/verify` passes
+- [x] MCP client connects via stdio
+- [x] `initialize` handshake succeeds
+- [x] `tools/list` returns 6 tools with correct names and schemas
+- [x] Malformed requests return standard MCP errors
+- [x] All tests pass
+- [x] `/verify` passes
 
 ---
 
 ## Handoff to Next Task
-**Files changed:** _(fill via /task-handoff)_
-**Decisions made:** _(fill via /task-handoff)_
-**Context for next task:** _(fill via /task-handoff)_
-**Open questions:** _(fill via /task-handoff)_
+**Files changed:**
+- `src/server/index.ts`
+- `tests/server/test_mcp.ts`
+- `tests/server/test_mcp.test.ts`
+- `package.json`
+- `tsconfig.json`
+
+**Decisions made:**
+- Implemented MCP tool registration with `McpServer.registerTool` and Zod v4 schemas for all 6 required stubs.
+- Added runtime transport selection via `MCP_TRANSPORT` with stdio as default and legacy SSE compatibility endpoints.
+- Implemented protocol tests with stdio client transport, explicit tools/list assertions, and malformed-request method-not-found validation.
+
+**Context for next task:**
+- `src/server/index.ts` now exports `createMcpServer`, `startStdioServer`, `startSseServer`, and `startServerFromEnv` for reuse in follow-up tasks.
+- MCP tool names are centralized in `MCP_TOOL_NAMES` for test and implementation consistency.
+- Test discovery is anchored via `tests/server/test_mcp.test.ts`, which loads task-required tests from `tests/server/test_mcp.ts`.
+
+**Open questions:**
+- None.
+
+## Handoff — What Was Done
+- Built the TypeScript MCP server with env-based transport selection (`stdio` default, `sse` optional).
+- Registered six required tool stubs with typed Zod input schemas and placeholder responses.
+- Added protocol compliance tests for stdio connection, initialization handshake, tools listing, and malformed request behavior.
+
+## Handoff — Patterns Learned
+- Use `McpServer.registerTool` plus Zod schemas to keep tool contracts explicit and testable.
+- For stdio protocol tests, use `StdioClientTransport` to spawn Node with `--import tsx/esm` against TypeScript entrypoints.
+- Keep test entrypoints aligned with Vitest include behavior by using a `.test.ts` loader file when task naming constraints require nonstandard test filenames.
+
+## Handoff — Files Changed
+- `src/server/index.ts`
+- `tests/server/test_mcp.ts`
+- `tests/server/test_mcp.test.ts`
+- `package.json`
+- `tsconfig.json`
+
+## Status
+COMPLETE
