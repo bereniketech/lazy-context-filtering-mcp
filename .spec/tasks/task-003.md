@@ -7,6 +7,18 @@ depends_on: [002]
 
 # Task 003: Python Scoring Engine — TF-IDF Relevance Scorer
 
+## Skills
+- .kit/skills/languages/python-patterns/SKILL.md
+- .kit/skills/testing-quality/tdd-workflow/SKILL.md
+- .kit/rules/python/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /tdd
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

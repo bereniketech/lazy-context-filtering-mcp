@@ -7,6 +7,18 @@ depends_on: [009]
 
 # Task 010: Session Management + Session-Aware Filtering
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/skills/testing-quality/tdd-workflow/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /tdd
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

@@ -1,3 +1,4 @@
+import { logger } from "../logger.js";
 import { createHash } from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import type { Store } from "../store.js";
@@ -54,6 +55,8 @@ function ensureValidContentSize(content: string): void {
 
 export async function registerContext(params: RegisterContextParams): Promise<RegisterContextResult> {
   const { store, engineClient, idGenerator, input } = params;
+  logger.info({ tool: "register_context" }, "tool invoked");
+  try {
   const cacheManager = params.cacheManager ?? filterResultCache;
   const normalizedContent = input.content.trim();
   if (normalizedContent.length === 0) {
@@ -91,12 +94,17 @@ export async function registerContext(params: RegisterContextParams): Promise<Re
 
   cacheManager.clear();
 
-  return {
-    id,
-    contentHash,
-    summary,
-    tokenCount
-  };
+    logger.info({ tool: "register_context", id }, "tool completed");
+    return {
+      id,
+      contentHash,
+      summary,
+      tokenCount
+    };
+  } catch (err: unknown) {
+    logger.error({ tool: "register_context", err }, "tool error");
+    throw err;
+  }
 }
 
 export type {

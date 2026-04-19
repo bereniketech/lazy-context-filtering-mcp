@@ -7,6 +7,18 @@ depends_on: [008, 010, 011]
 
 # Task 012: Dashboard REST API
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/skills/development/api-design/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /code-review
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

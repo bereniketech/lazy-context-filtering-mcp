@@ -7,6 +7,17 @@ depends_on: []
 
 # Task 001: Project Scaffolding and Shared Types
 
+## Skills
+- .kit/skills/devops/terminal-cli-devops/SKILL.md
+- .kit/skills/core/karpathy-principles/SKILL.md
+- .kit/rules/common/coding-style.md
+
+## Agents
+- @software-developer-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

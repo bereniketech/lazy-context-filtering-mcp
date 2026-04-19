@@ -7,6 +7,16 @@ depends_on: [012]
 
 # Task 013: React Dashboard Frontend
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @software-developer-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

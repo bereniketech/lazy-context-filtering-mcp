@@ -1,3 +1,5 @@
+import { CircuitBreaker } from "./circuit-breaker.js";
+
 type ScoreItemInput = {
   id: string;
   text: string;
@@ -19,10 +21,14 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 export class EngineClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly breaker: CircuitBreaker;
+  private static readonly MAX_RETRIES = 3;
+  private static readonly RETRY_BASE_MS = 200;
 
   public constructor(baseUrl?: string, timeoutMs: number = DEFAULT_TIMEOUT_MS) {
     this.baseUrl = (baseUrl ?? process.env.PYTHON_ENGINE_URL ?? DEFAULT_ENGINE_URL).replace(/\/$/, "");
     this.timeoutMs = timeoutMs;
+    this.breaker = new CircuitBreaker();
   }
 
   public async score(
@@ -63,22 +69,44 @@ export class EngineClient {
   }
 
   private async postJson<T>(path: string, body: JsonObject): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.timeoutMs)
-    });
-
-    if (!response.ok) {
-      const bodyText = await response.text();
-      throw new Error(`Engine request failed (${response.status}) for ${path}: ${bodyText}`);
+    if (this.breaker.isOpen()) {
+      throw new Error(`Engine circuit breaker is OPEN for ${path} — requests are suspended`);
     }
 
-    return (await response.json()) as T;
+    const url = `${this.baseUrl}${path}`;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < EngineClient.MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(this.timeoutMs)
+        });
+
+        if (!response.ok) {
+          const bodyText = await response.text();
+          throw new Error(`Engine request failed (${response.status}) for ${path}: ${bodyText}`);
+        }
+
+        this.breaker.recordSuccess();
+        return (await response.json()) as T;
+      } catch (err: unknown) {
+        lastError = err;
+        this.breaker.recordFailure();
+
+        const isLastAttempt = attempt === EngineClient.MAX_RETRIES - 1;
+        if (isLastAttempt) {
+          break;
+        }
+
+        const delayMs = EngineClient.RETRY_BASE_MS * Math.pow(2, attempt);
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    throw lastError;
   }
 }
 

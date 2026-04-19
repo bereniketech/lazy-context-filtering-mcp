@@ -14,6 +14,12 @@ import { listContext } from "./tools/list.js";
 import { filterContext } from "./tools/filter.js";
 import { registerContext } from "./tools/register.js";
 import { createSessionTool, endSessionTool } from "./tools/session.js";
+import { logger } from "./logger.js";
+import { apiKeyMiddleware } from "./middleware/auth.js";
+import { contextListResourceHandler } from "./resources/context-list.js";
+import { sessionListResourceHandler } from "./resources/session-list.js";
+import { filterContextPrompt } from "./prompts/filter-prompt.js";
+import { summarizeAndFilterPrompt } from "./prompts/summarize-prompt.js";
 
 export const SERVER_NAME = "lazy-context-filtering-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -78,6 +84,41 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   if (!options?.sessionService) {
     startSessionCleanup(sessionService);
   }
+
+  // MCP Resources
+  server.resource(
+    "context-items",
+    "context://items",
+    { description: "All registered context items" },
+    async () => contextListResourceHandler(store)
+  );
+
+  server.resource(
+    "context-sessions",
+    "context://sessions",
+    { description: "Active context filtering sessions" },
+    async () => sessionListResourceHandler(sessionService)
+  );
+
+  // MCP Prompts
+  server.prompt(
+    "filter_context_prompt",
+    "Generate a filter_context invocation",
+    {
+      query: z.string().min(1),
+      tokenBudget: z.number().int().min(1).optional()
+    },
+    ({ query, tokenBudget }) => filterContextPrompt(query, tokenBudget)
+  );
+
+  server.prompt(
+    "summarize_and_filter_prompt",
+    "Two-step summarize-then-filter workflow",
+    {
+      query: z.string().min(1)
+    },
+    ({ query }) => summarizeAndFilterPrompt(query)
+  );
 
   server.registerTool(
     "register_context",
@@ -233,6 +274,19 @@ export async function startStdioServer(): Promise<void> {
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  async function shutdown(signal: string): Promise<void> {
+    process.stderr.write(`[lazy-context-filtering-mcp] ${signal} received — shutting down\n`);
+    try {
+      await server.close();
+    } catch {
+      // ignore close errors
+    }
+    process.exit(0);
+  }
+
+  process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+  process.once("SIGINT", () => { void shutdown("SIGINT"); });
 }
 
 export async function startSseServer(): Promise<void> {
@@ -257,6 +311,11 @@ export async function startSseServer(): Promise<void> {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
+
+  // Apply API key auth to all MCP and API routes
+  app.use("/mcp", apiKeyMiddleware);
+  app.use("/messages", apiKeyMiddleware);
+  app.use("/api", apiKeyMiddleware);
 
   app.get("/mcp", async (_req, res) => {
     const transport = new SSEServerTransport("/messages", res);
@@ -294,8 +353,31 @@ export async function startSseServer(): Promise<void> {
   });
 
   await new Promise<void>((resolve, reject) => {
-    const server = app.listen(port, () => resolve());
-    server.on("error", reject);
+    const httpServer = app.listen(port, () => {
+      logger.info({ port, transport: "sse" }, "MCP server started");
+      resolve();
+    });
+    httpServer.on("error", reject);
+
+    function shutdown(signal: string): void {
+      logger.info({ signal }, "Shutdown signal received — closing server");
+      httpServer.close((err) => {
+        if (err) {
+          logger.error({ err }, "Error during graceful shutdown");
+          process.exit(1);
+        }
+        logger.info("Server closed — exiting");
+        process.exit(0);
+      });
+
+      setTimeout(() => {
+        logger.warn("Graceful shutdown timeout exceeded — forcing exit");
+        process.exit(1);
+      }, 10_000).unref();
+    }
+
+    process.once("SIGTERM", () => { shutdown("SIGTERM"); });
+    process.once("SIGINT", () => { shutdown("SIGINT"); });
   });
 }
 

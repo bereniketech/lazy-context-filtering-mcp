@@ -7,6 +7,18 @@ depends_on: [001]
 
 # Task 002: Python Filtering Engine — FastAPI Skeleton + Health Check
 
+## Skills
+- .kit/skills/languages/python-patterns/SKILL.md
+- .kit/skills/frameworks-backend/fastapi-pro/SKILL.md
+- .kit/skills/development/api-design/SKILL.md
+- .kit/rules/python/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

@@ -150,6 +150,12 @@ class SessionService {
     };
   }
 
+  public async listActiveSessions(): Promise<SessionState[]> {
+    const nowIso = toIso(this.now());
+    const records = await this.store.sessions.list(nowIso);
+    return records.map((r) => toSessionState(r, [...(this.historyBySessionId.get(r.id) ?? [])]));
+  }
+
   public async cleanExpiredSessions(): Promise<SessionCleanupResult> {
     const nowIso = toIso(this.now());
     const deletedSessions = await this.store.sessions.deleteExpired(nowIso);

@@ -7,6 +7,17 @@ depends_on: [010, 011, 013, 014]
 
 # Task 015: Docker Compose + Dockerfile + Final Integration Test
 
+## Skills
+- .kit/skills/devops/terminal-cli-devops/SKILL.md
+- .kit/skills/testing-quality/tdd-workflow/SKILL.md
+
+## Agents
+- @devops-infra-expert
+
+## Commands
+- /e2e
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

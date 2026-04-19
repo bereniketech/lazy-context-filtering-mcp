@@ -7,6 +7,17 @@ depends_on: [001]
 
 # Task 005: TypeScript MCP Server — Core Setup + Transport
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/skills/development/api-design/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

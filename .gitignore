@@ -29,3 +29,7 @@ dist/
 build/
 coverage/
 *.egg-info/
+
+# Claude Kit
+.kit/
+.spec/

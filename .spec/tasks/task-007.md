@@ -7,6 +7,17 @@ depends_on: [005, 006, 004]
 
 # Task 007: Context Registration Tool (`register_context`)
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/skills/development/api-design/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

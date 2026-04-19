@@ -7,6 +7,16 @@ depends_on: [012]
 
 # Task 014: CI/CD Pipeline (GitHub Actions)
 
+## Skills
+- .kit/skills/devops/terminal-cli-devops/SKILL.md
+- .kit/rules/common/development-workflow.md
+
+## Agents
+- @devops-infra-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

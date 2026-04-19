@@ -7,6 +7,18 @@ depends_on: [003, 007]
 
 # Task 009: Filter Context Tool with Token Budget
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/skills/languages/python-patterns/SKILL.md
+- .kit/skills/development/api-design/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

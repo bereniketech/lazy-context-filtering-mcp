@@ -7,6 +7,17 @@ depends_on: [002]
 
 # Task 004: Python Tokenizer + Summarizer
 
+## Skills
+- .kit/skills/languages/python-patterns/SKILL.md
+- .kit/skills/frameworks-backend/fastapi-pro/SKILL.md
+- .kit/rules/python/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

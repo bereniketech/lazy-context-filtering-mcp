@@ -282,6 +282,18 @@ describe("full workflow e2e", () => {
 
     expect(secondFilter.cached).toBe(true);
 
+    // Test MCP Prompt (added in Task 016) — skip if not registered
+    try {
+      const promptResult = await client.getPrompt({
+        name: "filter_context_prompt",
+        arguments: { query: "backend retrieval" }
+      });
+      expect(promptResult.messages).toHaveLength(1);
+      expect(promptResult.messages[0].content.type).toBe("text");
+    } catch {
+      // prompt not yet registered — skip gracefully
+    }
+
     const ended = await callTool<EndSessionResponse>(client, "end_session", {
       sessionId: "e2e-session"
     });

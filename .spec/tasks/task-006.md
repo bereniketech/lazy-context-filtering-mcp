@@ -7,6 +7,16 @@ depends_on: [005]
 
 # Task 006: Supabase Persistence Layer + In-Memory Fallback
 
+## Skills
+- .kit/skills/languages/typescript-expert/SKILL.md
+- .kit/rules/typescript/
+
+## Agents
+- @web-backend-expert
+
+## Commands
+- /task-handoff
+
 ## Session Bootstrap
 > Load these before reading anything else. Do not load skills not listed here.
 

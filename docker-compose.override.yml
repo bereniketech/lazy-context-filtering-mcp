@@ -1,0 +1,11 @@
+# Local development overrides — NOT committed with secret values
+# docker-compose automatically merges this file when running docker compose up
+services:
+  server:
+    environment:
+      API_KEY: ""
+      LOG_LEVEL: "debug"
+      NODE_ENV: "development"
+  engine:
+    environment:
+      LOG_LEVEL: "debug"

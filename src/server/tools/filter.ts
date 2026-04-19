@@ -1,3 +1,4 @@
+import { logger } from "../logger.js";
 import type { FilterResult, ScoredContextItem } from "../types.js";
 import { createTokenCounter, type TokenCounter } from "../token-counter.js";
 import type { SessionService } from "../session.js";
@@ -162,6 +163,8 @@ function packWithinBudget(items: ScoredContextItem[], budget: number): {
 
 export async function filterContext(params: FilterContextParams): Promise<FilterResult> {
   const { store, engineClient, input, sessionService } = params;
+  logger.info({ tool: "filter_context", query: input.query, tokenBudget: input.tokenBudget }, "tool invoked");
+  try {
   const tokenCounter = params.tokenCounter ?? createTokenCounter(engineClient);
   const cacheManager = params.cacheManager ?? filterResultCache;
   const minScore = input.minScore ?? DEFAULT_MIN_SCORE;
@@ -335,7 +338,12 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
   };
 
   cacheManager.set(cacheKey, result, records.map((record) => record.id));
-  return result;
+    logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+    return result;
+  } catch (err: unknown) {
+    logger.error({ tool: "filter_context", err }, "tool error");
+    throw err;
+  }
 }
 
 export type { FilterContextDeps, FilterContextInput, FilterContextParams, FilterEngineClient };
