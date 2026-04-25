@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteContext, getContext } from "../api";
 import type { ContextItem } from "../types";
 
@@ -9,9 +9,9 @@ export function ContextPage(): JSX.Element {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = async (searchTerm: string) => {
     try {
-      const response = await getContext(1, PAGE_SIZE);
+      const response = await getContext(1, PAGE_SIZE, searchTerm);
       setItems(response.items);
       setError("");
     } catch (err) {
@@ -20,24 +20,8 @@ export function ContextPage(): JSX.Element {
   };
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, []);
-
-  const filteredItems = useMemo(() => {
-    const needle = search.toLowerCase();
-    if (!needle) {
-      return items;
-    }
-
-    return items.filter((item) => {
-      const metadata = JSON.stringify(item.metadata).toLowerCase();
-      return (
-        item.content.toLowerCase().includes(needle) ||
-        item.source.toLowerCase().includes(needle) ||
-        metadata.includes(needle)
-      );
-    });
-  }, [items, search]);
+    load(search).catch(() => undefined);
+  }, [search]);
 
   const onDelete = async (id: string) => {
     try {
@@ -60,7 +44,7 @@ export function ContextPage(): JSX.Element {
           value={search}
           onChange={(event) => setSearch(event.currentTarget.value)}
         />
-        <span>{filteredItems.length} results</span>
+        <span>{items.length} results</span>
       </div>
       {error ? <p className="error">{error}</p> : null}
       <div className="table-wrap">
@@ -75,7 +59,7 @@ export function ContextPage(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((item) => (
+            {items.map((item) => (
               <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>{item.source}</td>

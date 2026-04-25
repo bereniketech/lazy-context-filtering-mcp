@@ -1,5 +1,6 @@
 import express from "express";
 import type { Store } from "./store.js";
+import { type DashboardConfig } from "../shared/config-schema.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PER_PAGE = 20;
@@ -10,13 +11,6 @@ const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
 
 type EngineHealthStatus = "healthy" | "unavailable";
-
-export type DashboardConfig = {
-  defaultMaxItems: number;
-  defaultMinScore: number;
-  filterCacheTtlMs: number;
-  sessionTtlMs: number;
-};
 
 type DashboardApiOptions = {
   store: Store;
@@ -97,17 +91,30 @@ export function createDashboardApiRouter(options: DashboardApiOptions): express.
     const perPage = Math.min(parsePositiveInt(req.query.perPage, DEFAULT_PER_PAGE), MAX_PER_PAGE);
     const offset = (page - 1) * perPage;
 
-    const [allItems, items] = await Promise.all([
-      options.store.contextItems.list(Number.MAX_SAFE_INTEGER, 0),
-      options.store.contextItems.list(perPage, offset)
-    ]);
+    const rawSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const needle = rawSearch.toLowerCase();
+
+    const allItemsRaw = await options.store.contextItems.list(Number.MAX_SAFE_INTEGER, 0);
+    const allItems = needle
+      ? allItemsRaw.filter((item) => {
+          const metadata = JSON.stringify(item.metadata).toLowerCase();
+          return (
+            item.content.toLowerCase().includes(needle) ||
+            item.source.toLowerCase().includes(needle) ||
+            metadata.includes(needle)
+          );
+        })
+      : allItemsRaw;
+
+    const total = allItems.length;
+    const items = allItems.slice(offset, offset + perPage);
 
     res.status(200).json({
       items,
       page,
       perPage,
-      total: allItems.length,
-      totalPages: Math.max(1, Math.ceil(allItems.length / perPage))
+      total,
+      totalPages: Math.max(1, Math.ceil(total / perPage))
     });
   });
 

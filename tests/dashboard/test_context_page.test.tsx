@@ -6,47 +6,62 @@ import { describe, expect, it, vi } from "vitest";
 import { ContextPage } from "../../src/dashboard/src/pages/ContextPage";
 
 vi.mock("../../src/dashboard/src/api", () => ({
-  getContext: vi.fn().mockResolvedValue({
-    items: [
-      {
-        id: "ctx-1",
-        content: "Alpha context",
-        source: "docs",
-        tokenCount: 11,
-        metadata: { topic: "alpha" },
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: "ctx-2",
-        content: "Beta context",
-        source: "notes",
-        tokenCount: 7,
-        metadata: { topic: "beta" },
-        createdAt: new Date().toISOString()
-      }
-    ],
-    page: 1,
-    perPage: 50,
-    total: 2,
-    totalPages: 1
-  }),
+  getContext: vi.fn(),
   deleteContext: vi.fn().mockResolvedValue(undefined)
 }));
 
-import { deleteContext } from "../../src/dashboard/src/api";
+import { getContext, deleteContext } from "../../src/dashboard/src/api";
+
+const ALL_ITEMS = [
+  {
+    id: "ctx-1",
+    content: "Alpha context",
+    source: "docs",
+    tokenCount: 11,
+    metadata: { topic: "alpha" },
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "ctx-2",
+    content: "Beta context",
+    source: "notes",
+    tokenCount: 7,
+    metadata: { topic: "beta" },
+    createdAt: new Date().toISOString()
+  }
+];
 
 describe("context page", () => {
-  it("filters rows by search and deletes an item", async () => {
+  it("fetches with search term on input change and deletes an item", async () => {
+    vi.mocked(getContext).mockResolvedValueOnce({
+      items: ALL_ITEMS,
+      page: 1,
+      perPage: 50,
+      total: 2,
+      totalPages: 1
+    });
+
     render(<ContextPage />);
 
     await screen.findByText("Alpha context");
+
+    vi.mocked(getContext).mockResolvedValueOnce({
+      items: [ALL_ITEMS[1]],
+      page: 1,
+      perPage: 50,
+      total: 1,
+      totalPages: 1
+    });
 
     fireEvent.change(screen.getByLabelText("Search context"), {
       target: { value: "beta" }
     });
 
-    expect(screen.queryByText("Alpha context")).not.toBeInTheDocument();
-    expect(screen.getByText("Beta context")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getContext).toHaveBeenCalledWith(1, 50, "beta");
+    });
+
+    await screen.findByText("Beta context");
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 

@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from engine.filter import filter_items
 from engine.models import (
     ScoreRequest,
     ScoreResponse,
@@ -37,13 +36,12 @@ async def health() -> dict[str, str]:
 async def score(request: ScoreRequest) -> ScoreResponse:
     """
     Score and rank context items by relevance to the query.
-    
-    Returns the top-k most relevant items ranked by relevance score.
+
+    Returns all scored items ranked by relevance score descending.
+    The TypeScript layer applies minScore and maxItems filtering.
     """
     scored_items = scorer.score(request.query, request.items, request.session_history)
-    filtered_items = filter_items(scored_items, min_score=0.0, limit=request.top_k)
-    
-    return ScoreResponse(items=filtered_items)
+    return ScoreResponse(items=scored_items)
 
 
 @app.post("/summarize")

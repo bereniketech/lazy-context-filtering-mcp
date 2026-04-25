@@ -26,11 +26,15 @@ export async function getStatus(): Promise<DashboardStatus> {
   return parseResponse<DashboardStatus>(response);
 }
 
-export async function getContext(page = 1, perPage = 20): Promise<ContextResponse> {
+export async function getContext(page = 1, perPage = 20, search = ""): Promise<ContextResponse> {
   const params = new URLSearchParams({
     page: String(page),
     perPage: String(perPage)
   });
+
+  if (search) {
+    params.set("search", search);
+  }
 
   const response = await fetch(`${API_BASE}/context?${params.toString()}`);
   return parseResponse<ContextResponse>(response);

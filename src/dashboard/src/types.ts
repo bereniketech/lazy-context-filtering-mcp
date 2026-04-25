@@ -37,12 +37,7 @@ export type SessionResponse = {
   sessions: SessionRecord[];
 };
 
-export type DashboardConfig = {
-  defaultMaxItems: number;
-  defaultMinScore: number;
-  filterCacheTtlMs: number;
-  sessionTtlMs: number;
-};
+export { type DashboardConfig } from "../../shared/config-schema";
 
 export type AnalyticsSession = {
   sessionId: string;
