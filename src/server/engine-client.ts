@@ -18,6 +18,10 @@ type JsonObject = Record<string, unknown>;
 const DEFAULT_ENGINE_URL = "http://127.0.0.1:8100";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+export function resolveEngineBaseUrl(override?: string): string {
+  return (override ?? process.env.PYTHON_ENGINE_URL ?? DEFAULT_ENGINE_URL).replace(/\/$/, "");
+}
+
 export class EngineClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
@@ -26,7 +30,7 @@ export class EngineClient {
   private static readonly RETRY_BASE_MS = 200;
 
   public constructor(baseUrl?: string, timeoutMs: number = DEFAULT_TIMEOUT_MS) {
-    this.baseUrl = (baseUrl ?? process.env.PYTHON_ENGINE_URL ?? DEFAULT_ENGINE_URL).replace(/\/$/, "");
+    this.baseUrl = resolveEngineBaseUrl(baseUrl);
     this.timeoutMs = timeoutMs;
     this.breaker = new CircuitBreaker();
   }

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import type { SessionRecord, Store } from "./store.js";
-
-const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
+import { DEFAULT_SESSION_TTL_MS } from "../shared/config-schema.js";
+import { isExpired } from "./store-utils.js";
 const DEFAULT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 type SessionHistoryEntry = {
@@ -104,7 +104,7 @@ class SessionService {
       throw new SessionLifecycleError("session-not-found", `session-not-found: ${id}`);
     }
 
-    if (record.expiresAt && Date.parse(record.expiresAt) <= this.now().getTime()) {
+    if (isExpired(record.expiresAt, this.now().getTime())) {
       await this.endSession(id);
       throw new SessionLifecycleError("session-expired", `session-expired: ${id}`);
     }
@@ -163,7 +163,7 @@ class SessionService {
 
     for (const sessionId of this.historyBySessionId.keys()) {
       const record = await this.store.sessions.getById(sessionId);
-      if (!record || (record.expiresAt !== null && Date.parse(record.expiresAt) <= Date.parse(nowIso))) {
+      if (!record || isExpired(record.expiresAt, Date.parse(nowIso))) {
         this.historyBySessionId.delete(sessionId);
       }
     }

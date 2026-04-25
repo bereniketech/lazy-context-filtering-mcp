@@ -1,14 +1,11 @@
 import express from "express";
 import type { Store } from "./store.js";
-import { type DashboardConfig } from "../shared/config-schema.js";
+import { type DashboardConfig, DEFAULT_MAX_ITEMS, DEFAULT_MIN_SCORE, DEFAULT_CACHE_TTL_MS, DEFAULT_SESSION_TTL_MS } from "../shared/config-schema.js";
+import { resolveEngineBaseUrl } from "./engine-client.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PER_PAGE = 20;
 const MAX_PER_PAGE = 100;
-const DEFAULT_MAX_ITEMS = 20;
-const DEFAULT_MIN_SCORE = 0;
-const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
-const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
 
 type EngineHealthStatus = "healthy" | "unavailable";
 
@@ -38,14 +35,10 @@ function parseNonNegativeNumber(input: unknown): number | null {
   return input;
 }
 
-function getBaseEngineUrl(): string {
-  const baseUrl = process.env.PYTHON_ENGINE_URL ?? "http://127.0.0.1:8100";
-  return baseUrl.replace(/\/$/, "");
-}
 
 async function defaultEngineHealthCheck(): Promise<EngineHealthStatus> {
   try {
-    const response = await fetch(`${getBaseEngineUrl()}/health`, {
+    const response = await fetch(`${resolveEngineBaseUrl()}/health`, {
       method: "GET",
       signal: AbortSignal.timeout(1000)
     });

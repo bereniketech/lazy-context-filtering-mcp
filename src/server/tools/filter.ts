@@ -4,10 +4,8 @@ import { createTokenCounter, type TokenCounter } from "../token-counter.js";
 import type { SessionService } from "../session.js";
 import type { ContextItemRecord, Store } from "../store.js";
 import { createFilterCacheKey, filterResultCache, type FilterResultCache } from "../cache.js";
-
-const BATCH_SIZE = 500;
-const DEFAULT_MAX_ITEMS = 20;
-const DEFAULT_MIN_SCORE = 0;
+import { listAllContextItems } from "../store-utils.js";
+import { DEFAULT_MAX_ITEMS, DEFAULT_MIN_SCORE } from "../../shared/config-schema.js";
 
 type FilterContextInput = {
   query: string;
@@ -38,22 +36,6 @@ type FilterContextDeps = {
 type FilterContextParams = FilterContextDeps & {
   input: FilterContextInput;
 };
-
-async function listAllContextItems(store: Store): Promise<ContextItemRecord[]> {
-  const allItems: ContextItemRecord[] = [];
-  let offset = 0;
-
-  while (true) {
-    const batch = await store.contextItems.list(BATCH_SIZE, offset);
-    allItems.push(...batch);
-
-    if (batch.length < BATCH_SIZE) {
-      return allItems;
-    }
-
-    offset += BATCH_SIZE;
-  }
-}
 
 function buildScoredItems(
   recordsById: Map<string, ContextItemRecord>,
@@ -164,7 +146,6 @@ function packWithinBudget(items: ScoredContextItem[], budget: number): {
 export async function filterContext(params: FilterContextParams): Promise<FilterResult> {
   const { store, engineClient, input, sessionService } = params;
   logger.info({ tool: "filter_context", query: input.query, tokenBudget: input.tokenBudget }, "tool invoked");
-  try {
   const tokenCounter = params.tokenCounter ?? createTokenCounter(engineClient);
   const cacheManager = params.cacheManager ?? filterResultCache;
   const minScore = input.minScore ?? DEFAULT_MIN_SCORE;
@@ -179,75 +160,143 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
     await sessionService.updateSession(input.sessionId, input.query, retrievedIds);
   };
 
-  const records = await listAllContextItems(store);
-  const cacheKey = createFilterCacheKey({
-    query: input.query,
-    sessionId: input.sessionId,
-    contextIds: records.map((record) => record.id)
-  });
-
-  const cachedResult = cacheManager.get(cacheKey);
-  if (cachedResult) {
-    await updateSessionHistory(cachedResult.selectedItems.map((item) => item.id));
-    return {
-      ...cachedResult,
-      cached: true
-    };
-  }
-
-  if (records.length === 0) {
-    await updateSessionHistory([]);
-
-    const result: FilterResult = {
-      sessionId: input.sessionId ?? "",
+  try {
+    const records = await listAllContextItems(store);
+    const cacheKey = createFilterCacheKey({
       query: input.query,
-      selectedItems: [],
-      totalTokens: 0,
-      tokenBudget: input.tokenBudget,
-      minScore,
-      totalCandidates: 0,
-      droppedItemIds: []
-    };
+      sessionId: input.sessionId,
+      contextIds: records.map((record) => record.id)
+    });
 
-    cacheManager.set(cacheKey, result, []);
-    return result;
-  }
+    const cachedResult = cacheManager.get(cacheKey);
+    if (cachedResult) {
+      await updateSessionHistory(cachedResult.selectedItems.map((item) => item.id));
+      logger.info({ tool: "filter_context", itemCount: cachedResult.selectedItems.length, cached: true }, "tool completed");
+      return {
+        ...cachedResult,
+        cached: true
+      };
+    }
 
-  const recordsById = new Map(records.map((record) => [record.id, record]));
-  const scoredByEngine = await engineClient.score(
-    input.query,
-    records.map((record) => ({
-      id: record.id,
-      text: record.content,
-      metadata: record.metadata
-    })),
-    records.length,
-    sessionHistory
-  );
+    if (records.length === 0) {
+      await updateSessionHistory([]);
 
-  const rankedItems = buildScoredItems(recordsById, scoredByEngine, minScore, maxItems);
-  if (input.tokenBudget === undefined) {
-    await updateSessionHistory(rankedItems.map((item) => item.id));
+      const result: FilterResult = {
+        sessionId: input.sessionId ?? "",
+        query: input.query,
+        selectedItems: [],
+        totalTokens: 0,
+        tokenBudget: input.tokenBudget,
+        minScore,
+        totalCandidates: 0,
+        droppedItemIds: []
+      };
 
-    const result: FilterResult = {
-      sessionId: input.sessionId ?? "",
-      query: input.query,
-      selectedItems: rankedItems,
-      totalTokens: rankedItems.reduce((sum, item) => sum + item.tokenCount, 0),
-      tokenBudget: undefined,
-      minScore,
-      totalCandidates: rankedItems.length,
-      droppedItemIds: []
-    };
+      cacheManager.set(cacheKey, result, []);
+      logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+      return result;
+    }
 
-    cacheManager.set(cacheKey, result, records.map((record) => record.id));
-    return result;
-  }
+    const recordsById = new Map(records.map((record) => [record.id, record]));
+    const scoredByEngine = await engineClient.score(
+      input.query,
+      records.map((record) => ({
+        id: record.id,
+        text: record.content,
+        metadata: record.metadata
+      })),
+      records.length,
+      sessionHistory
+    );
 
-  const topItem = rankedItems[0];
-  if (topItem && topItem.tokenCount > input.tokenBudget) {
-    const truncated = await truncateToBudget(topItem.content, input.tokenBudget, tokenCounter);
-    if (truncated.tokenCount === 0) {
+    const rankedItems = buildScoredItems(recordsById, scoredByEngine, minScore, maxItems);
+    if (input.tokenBudget === undefined) {
+      await updateSessionHistory(rankedItems.map((item) => item.id));
+
+      const result: FilterResult = {
+        sessionId: input.sessionId ?? "",
+        query: input.query,
+        selectedItems: rankedItems,
+        totalTokens: rankedItems.reduce((sum, item) => sum + item.tokenCount, 0),
+        tokenBudget: undefined,
+        minScore,
+        totalCandidates: rankedItems.length,
+        droppedItemIds: []
+      };
+
+      cacheManager.set(cacheKey, result, records.map((record) => record.id));
+      logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+      return result;
+    }
+
+    const topItem = rankedItems[0];
+    if (topItem && topItem.tokenCount > input.tokenBudget) {
+      const truncated = await truncateToBudget(topItem.content, input.tokenBudget, tokenCounter);
+      if (truncated.tokenCount === 0) {
+        const result: FilterResult = {
+          sessionId: input.sessionId ?? "",
+          query: input.query,
+          selectedItems: [],
+          totalTokens: 0,
+          tokenBudget: input.tokenBudget,
+          minScore,
+          totalCandidates: rankedItems.length,
+          droppedItemIds: rankedItems.map((item) => item.id)
+        };
+
+        cacheManager.set(cacheKey, result, records.map((record) => record.id));
+        logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+        return result;
+      }
+
+      const truncatedItem: ScoredContextItem = {
+        ...topItem,
+        content: truncated.content,
+        tokenCount: truncated.tokenCount,
+        truncated: true
+      };
+
+      await updateSessionHistory([truncatedItem.id]);
+
+      const result: FilterResult = {
+        sessionId: input.sessionId ?? "",
+        query: input.query,
+        selectedItems: [truncatedItem],
+        totalTokens: truncated.tokenCount,
+        tokenBudget: input.tokenBudget,
+        minScore,
+        totalCandidates: rankedItems.length,
+        droppedItemIds: rankedItems.slice(1).map((item) => item.id)
+      };
+
+      cacheManager.set(cacheKey, result, records.map((record) => record.id));
+      logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+      return result;
+    }
+
+    const packed = packWithinBudget(rankedItems, input.tokenBudget);
+    if (packed.selectedItems.length > 0) {
+      await updateSessionHistory(packed.selectedItems.map((item) => item.id));
+
+      const result: FilterResult = {
+        sessionId: input.sessionId ?? "",
+        query: input.query,
+        selectedItems: packed.selectedItems,
+        totalTokens: packed.totalTokens,
+        tokenBudget: input.tokenBudget,
+        minScore,
+        totalCandidates: rankedItems.length,
+        droppedItemIds: packed.droppedItemIds
+      };
+
+      cacheManager.set(cacheKey, result, records.map((record) => record.id));
+      logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
+      return result;
+    }
+
+    if (!topItem || input.tokenBudget <= 0) {
+      await updateSessionHistory([]);
+
       const result: FilterResult = {
         sessionId: input.sessionId ?? "",
         query: input.query,
@@ -260,53 +309,10 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
       };
 
       cacheManager.set(cacheKey, result, records.map((record) => record.id));
+      logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
       return result;
     }
 
-    const truncatedItem: ScoredContextItem = {
-      ...topItem,
-      content: truncated.content,
-      tokenCount: truncated.tokenCount,
-      truncated: true
-    };
-
-    await updateSessionHistory([truncatedItem.id]);
-
-    const result: FilterResult = {
-      sessionId: input.sessionId ?? "",
-      query: input.query,
-      selectedItems: [truncatedItem],
-      totalTokens: truncated.tokenCount,
-      tokenBudget: input.tokenBudget,
-      minScore,
-      totalCandidates: rankedItems.length,
-      droppedItemIds: rankedItems.slice(1).map((item) => item.id)
-    };
-
-    cacheManager.set(cacheKey, result, records.map((record) => record.id));
-    return result;
-  }
-
-  const packed = packWithinBudget(rankedItems, input.tokenBudget);
-  if (packed.selectedItems.length > 0) {
-    await updateSessionHistory(packed.selectedItems.map((item) => item.id));
-
-    const result: FilterResult = {
-      sessionId: input.sessionId ?? "",
-      query: input.query,
-      selectedItems: packed.selectedItems,
-      totalTokens: packed.totalTokens,
-      tokenBudget: input.tokenBudget,
-      minScore,
-      totalCandidates: rankedItems.length,
-      droppedItemIds: packed.droppedItemIds
-    };
-
-    cacheManager.set(cacheKey, result, records.map((record) => record.id));
-    return result;
-  }
-
-  if (!topItem || input.tokenBudget <= 0) {
     await updateSessionHistory([]);
 
     const result: FilterResult = {
@@ -321,29 +327,12 @@ export async function filterContext(params: FilterContextParams): Promise<Filter
     };
 
     cacheManager.set(cacheKey, result, records.map((record) => record.id));
-    return result;
-  }
-
-  await updateSessionHistory([]);
-
-  const result: FilterResult = {
-    sessionId: input.sessionId ?? "",
-    query: input.query,
-    selectedItems: [],
-    totalTokens: 0,
-    tokenBudget: input.tokenBudget,
-    minScore,
-    totalCandidates: rankedItems.length,
-    droppedItemIds: rankedItems.map((item) => item.id)
-  };
-
-  cacheManager.set(cacheKey, result, records.map((record) => record.id));
     logger.info({ tool: "filter_context", itemCount: result.selectedItems.length }, "tool completed");
     return result;
-  } catch (err: unknown) {
-    logger.error({ tool: "filter_context", err }, "tool error");
-    throw err;
-  }
+} catch (err: unknown) {
+  logger.error({ tool: "filter_context", err }, "tool error");
+  throw err;
+}
 }
 
 export type { FilterContextDeps, FilterContextInput, FilterContextParams, FilterEngineClient };

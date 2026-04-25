@@ -1,8 +1,8 @@
 import type { ContextItemRecord, Store } from "../store.js";
+import { listAllContextItems } from "../store-utils.js";
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
-const BATCH_SIZE = 500;
 
 type ListContextInput = {
   tags?: string[];
@@ -61,22 +61,6 @@ function matchesRequestedTags(item: ContextItemRecord, requestedTags: string[]):
 
   const itemTags = getTags(item.metadata);
   return requestedTags.some((tag) => itemTags.includes(tag));
-}
-
-async function listAllContextItems(store: Store): Promise<ContextItemRecord[]> {
-  const allItems: ContextItemRecord[] = [];
-  let offset = 0;
-
-  while (true) {
-    const batch = await store.contextItems.list(BATCH_SIZE, offset);
-    allItems.push(...batch);
-
-    if (batch.length < BATCH_SIZE) {
-      return allItems;
-    }
-
-    offset += BATCH_SIZE;
-  }
 }
 
 export async function listContext(params: ListContextParams): Promise<ListContextResult> {

@@ -9,6 +9,7 @@ import {
   type UpdateSessionInput
 } from "./store.js";
 import { filterResultCache, type FilterResultCache } from "./cache.js";
+import { isExpired } from "./store-utils.js";
 
 function toIsoNow(): string {
   return new Date().toISOString();
@@ -102,7 +103,7 @@ export class InMemoryStore implements Store {
       const now = Date.parse(nowIso ?? toIsoNow());
 
       return [...this.sessionsById.values()]
-        .filter((session) => !session.expiresAt || Date.parse(session.expiresAt) > now)
+        .filter((session) => !isExpired(session.expiresAt, now))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
     update: async (id: string, updates: UpdateSessionInput): Promise<SessionRecord | null> => {
@@ -130,11 +131,7 @@ export class InMemoryStore implements Store {
       let deleted = 0;
 
       for (const [id, session] of this.sessionsById.entries()) {
-        if (!session.expiresAt) {
-          continue;
-        }
-
-        if (Date.parse(session.expiresAt) <= now) {
+        if (isExpired(session.expiresAt, now)) {
           this.sessionsById.delete(id);
           deleted += 1;
         }
@@ -151,7 +148,7 @@ export class InMemoryStore implements Store {
         return null;
       }
 
-      if (Date.parse(record.expiresAt) <= Date.now()) {
+      if (isExpired(record.expiresAt, Date.now())) {
         this.filterCacheByKey.delete(key);
         return null;
       }
@@ -162,7 +159,7 @@ export class InMemoryStore implements Store {
       const now = Date.now();
 
       return [...this.filterCacheByKey.values()]
-        .filter((record) => Date.parse(record.expiresAt) > now)
+        .filter((record) => !isExpired(record.expiresAt, now))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
     set: async (input: SetFilterCacheInput): Promise<FilterCacheRecord> => {
@@ -198,7 +195,7 @@ export class InMemoryStore implements Store {
       let deleted = 0;
 
       for (const [key, value] of this.filterCacheByKey.entries()) {
-        if (Date.parse(value.expiresAt) <= now) {
+        if (isExpired(value.expiresAt, now)) {
           this.filterCacheByKey.delete(key);
           deleted += 1;
         }
